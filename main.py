@@ -24,14 +24,14 @@ dist2 = cv2.normalize(dist2, None, 255, 0, cv2.NORM_MINMAX, cv2.CV_8UC1)
 _, dist2 = cv2.threshold(dist2, 155, 255, cv2.THRESH_BINARY)
 dist2 = cv2.dilate(dist2, kernel, iterations = 1)
 
-kernel = np.ones((5, 5),np.uint8)
 dist = cv2.subtract(dist, dist2)
+
+kernel = np.ones((5, 5),np.uint8)
 dist = cv2.erode(dist, kernel, iterations = 3)
 dist = cv2.dilate(dist, kernel, iterations = 1)
 kernel = np.ones((3, 3),np.uint8)
 dist = cv2.erode(dist, kernel, iterations = 1)
 dist = cv2.bitwise_or(dist, dist2)
-
 
 ################################## contour ##################################################
 contours, hierarchy = cv2.findContours(dist, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
@@ -52,12 +52,18 @@ for contour in contours:
         x_min, y_min = contour_.min(axis=0)
         x_max, y_max = contour_.max(axis=0)
 
-        count += 1
+
         rect = cv2.minAreaRect(contour)
         box = cv2.boxPoints(rect)
         box = np.int0(box)
 
+        min_x, min_y = box.min(axis=0)
+        max_x, max_y = box.max(axis=0)
+        square = (max_x - min_x) ** 2 + (max_y - min_y) ** 2
+        if square <= 50:
+            continue
         
+        count += 1
         middle_x, middle_y = ((box.max(axis=0) + box.min(axis=0)) / 2).astype(np.int0)
         x_min = middle_x - int(unit_box_w/2)
         y_min = middle_y - int(unit_box_h/2)
@@ -66,10 +72,10 @@ for contour in contours:
         cv2.rectangle(img, (x_min, y_min), (x_max, y_max), (255, 56, 255), 2)
         # cv2.drawContours(img, [box], -1, (0, 255, 0), 3)
         
-        img_ = img.copy()
-        cv2.putText(img_, 'Count: %d' %count, (30, 80), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 255, 255), 2)
-        cv2.imshow('img', img_)
-        cv2.waitKey(500)
+        # img_ = img.copy()
+        # cv2.putText(img_, 'Count: %d' %count, (30, 80), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 255, 255), 2)
+        # cv2.imshow('img', img_)
+        # cv2.waitKey(500)
 
 cv2.putText(img, 'Count: %d' %count, (30, 80), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 255, 255), 2)
 
