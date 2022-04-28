@@ -1,40 +1,45 @@
 import cv2
-from cv2 import DIST_L12
 import numpy as np
 
 img = cv2.imread('./img/pills2.jpg')    
 gray = cv2.imread('./img/pills2.jpg', cv2.IMREAD_GRAYSCALE)
 
 kernel = np.ones((11,11),np.uint8)
-inrange = cv2.inRange(img, (0, 120, 200), (0, 255, 255))
-inrange = cv2.dilate(inrange, kernel, iterations = 1)
-masked = cv2.bitwise_and(img, img.copy(), mask=inrange)
+inrange = cv2.inRange(img, (0, 120, 200), (0, 255, 255))  # 알약 색상 추출
+inrange = cv2.dilate(inrange, kernel, iterations = 1)  # 모폴로지 연산 (잡티 제거)
+# masked = cv2.bitwise_and(img, img.copy(), mask=inrange)
 
 
-dist = cv2.distanceTransform(inrange, cv2.DIST_L2, 5)
-dist_ = cv2.normalize(dist, None, 255, 0, cv2.NORM_MINMAX, cv2.CV_8UC1)
+################################ calculate distance #####################################
+dist = cv2.distanceTransform(inrange, cv2.DIST_L2, 5)  # 거리 계산
+dist_ = cv2.normalize(dist, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8UC1)
 
-_, th1 = cv2.threshold(dist_, 145, 255, cv2.THRESH_BINARY)
-_, th2 = cv2.threshold(dist_, 175, 255, cv2.THRESH_BINARY_INV)
-dist = cv2.bitwise_and(th1, th2)
-dist = cv2.dilate(dist, kernel, iterations = 1)
+# dist_ = cv2.equalizeHist(dist_)  # 평탄화
+# _, dist_ = cv2.threshold(dist_, 242, 255, cv2.THRESH_BINARY)  # 일정 거리 이상인 부분만 흰색 표시
+# dist = dist_
 
-dist2 = cv2.distanceTransform(dist, cv2.DIST_L2, 5)
+_, th1 = cv2.threshold(dist_, 145, 255, cv2.THRESH_BINARY)  # 일정 거리 이상인 부분만 흰색 표시
+_, th2 = cv2.threshold(dist_, 175, 255, cv2.THRESH_BINARY_INV)  # 많이 하얀 부분은 검은색 표시 (붙어 있는 오브젝트 처리를 위함)
+dist = cv2.bitwise_and(th1, th2)  # 위 두개 이미지 합치기
+dist = cv2.dilate(dist, kernel, iterations = 1)  # 선 굵게
+
+########################## process overlapping object #########################################
+dist2 = cv2.distanceTransform(dist, cv2.DIST_L2, 5)  # 다시 한 번 거리 계산
 dist2 = cv2.normalize(dist2, None, 255, 0, cv2.NORM_MINMAX, cv2.CV_8UC1)
-_, dist2 = cv2.threshold(dist2, 155, 255, cv2.THRESH_BINARY)
+_, dist2 = cv2.threshold(dist2, 155, 255, cv2.THRESH_BINARY)   # 일정 거리 이상인 부분만 흰색 표시
 dist2 = cv2.dilate(dist2, kernel, iterations = 1)
 
-dist = cv2.subtract(dist, dist2)
-
-kernel = np.ones((5, 5),np.uint8)
+dist = cv2.subtract(dist, dist2)  # 기존의 흑백 영상과 다른 부분만 표시
+kernel = np.ones((5, 5),np.uint8)  # 모폴로지 연산으로 자잘한 점들 제거
 dist = cv2.erode(dist, kernel, iterations = 3)
 dist = cv2.dilate(dist, kernel, iterations = 1)
 kernel = np.ones((3, 3),np.uint8)
 dist = cv2.erode(dist, kernel, iterations = 1)
-dist = cv2.bitwise_or(dist, dist2)
+dist = cv2.bitwise_or(dist, dist2)  # 기존 흑백 영상과 합치기
 
-################################## contour ##################################################
+##################################### contour ################################################
 contours, hierarchy = cv2.findContours(dist, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+# contours, hierarchy = cv2.findContours(inrange, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
 # cv2.drawContours(img, contours, -1, (0, 0, 255), 2, hierarchy=hierarchy, maxLevel=1)
 
 unit = inrange[300:400, 200:320]
@@ -45,6 +50,7 @@ unit_box = np.int0(box)
 unit_box_w, unit_box_h = unit_box.max(axis=0) - unit_box.min(axis=0)
 
 
+################################### draw contour ############################################
 count = 0
 for contour in contours:
     contour_ = contour.squeeze()
@@ -60,7 +66,7 @@ for contour in contours:
         min_x, min_y = box.min(axis=0)
         max_x, max_y = box.max(axis=0)
         square = (max_x - min_x) ** 2 + (max_y - min_y) ** 2
-        if square <= 50:
+        if square <= 120:
             continue
         
         count += 1
@@ -83,13 +89,6 @@ cv2.putText(img, 'Count: %d' %count, (30, 80), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 
 
 cv2.imshow('img', img)
 cv2.imshow('dist', dist)
-# cv2.imshow('dist2', dist2)
-# cv2.imshow('canny', canny)
-# cv2.imshow('masked', masked)
-# cv2.imshow('inrange', inrange)
-# cv2.imshow('dilation', dilation)
-# cv2.imshow('contour', white_background)
-# cv2.imshow('contour2', white_background2)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
 
